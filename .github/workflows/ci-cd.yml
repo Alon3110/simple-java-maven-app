@@ -52,3 +52,24 @@ jobs:
 
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ steps.version.outputs.new_version }}
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:latest
+
+      - name: Setup ssh key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/ssh/known_hosts
+
+      - name: Deploy image
+        run: |
+          ssh ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "
+            docker pull ${{ secrets.DOCEKR_USERNAME }}/my-app:latest &&
+            docker stop my-app || true &&
+            docker rm my-app || true &&
+            docker run -d --name my-app -p 8080:8000 ${{ secrets.DOCKER_USERNAME }}/my-app:latest
+          "
+
+      - name: Verify app
+        run: |
+          sleep 10
+          curl -f http://${{ secrets.SERVER_HOST }}:8080

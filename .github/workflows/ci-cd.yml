@@ -53,12 +53,20 @@ jobs:
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ steps.version.outputs.new_version }}
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:latest
 
+
+      - name: Check secrets
+        run: |
+          test -n "${{ secrets.SERVER_HOST }}"
+          test -n "${{ secrets.SERVER_USER }}"
+          test -n "${{ secrets.SERVER_SSH_KEY }}"
+
       - name: Setup ssh key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SERVER_SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+          ls -la ~/.ssh
 
       - name: Deploy image
         run: |

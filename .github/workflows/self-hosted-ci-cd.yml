@@ -1,22 +1,18 @@
-name: CI/CD Pipeline
-
 on:
   push:
-    branches: [ "pipeline" ]
-
+    branches: ["aws-infrastructure"]
 permissions:
   contents: write
 
 jobs:
   build-push:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Setup java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -36,20 +32,24 @@ jobs:
           git add pom.xml
           git commit -m "Bump version to $NEW_VERSION [skip ci]"
           git push
-
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
+
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY_ACCESS }}
+          aws-region: us-east-1
 
-      - name: Build and push Docker image
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image to ECR
         run: |
+          IMAGE=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/my-app
           docker build \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ steps.version.outputs.new_version }} \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/my-app:latest .
+            -t $IMAGE:${{ steps.version.outputs.new_version }} \
+            -t $IMAGE:latest .
 
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:${{ steps.version.outputs.new_version }}
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-app:latest
-
+          docker push $IMAGE:${{ steps.version.outputs.new_version }}
+          docker push $IMAGE:latest
